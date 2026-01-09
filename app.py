@@ -4,10 +4,13 @@ import os
 import tempfile
 import pandas as pd
 from fpdf import FPDF
+import plotly.io as pio
+
+# استيراد أدوات المساعدة (تأكد من وجود مجلد utils)
 from utils.helpers import authenticate_gee
 from utils.geometry_utils import get_country_roi
 
-# Import Analysis Modules
+# استيراد الموديولات (تأكد من وجود مجلد modules وملف __init__.py بداخله)
 import modules.wildfire as wildfire
 import modules.air_quality as air_quality
 import modules.lst as lst
@@ -18,7 +21,7 @@ import modules.dem_analysis as dem_analysis
 import modules.time_series as time_series
 
 # --------------------------------------------------
-# 1. Professional PDF Reporting Engine
+# 1. محرك تقارير PDF الاحترافي
 # --------------------------------------------------
 class GeoSenseReport(FPDF):
     def header(self):
@@ -39,7 +42,7 @@ def generate_pdf_report(city, year, month, analysis, stats_data, chart_path=None
     pdf = GeoSenseReport()
     pdf.add_page()
     
-    # Metadata
+    # المعلومات الأساسية
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, "1. Executive Summary", ln=True)
     pdf.set_font("Arial", '', 10)
@@ -49,7 +52,7 @@ def generate_pdf_report(city, year, month, analysis, stats_data, chart_path=None
         ["Governorate", city],
         ["Observation Period", f"{month} {year}"],
         ["Analysis Module", analysis],
-        ["Data Source", "Google Earth Engine"],
+        ["Data Source", "Google Earth Engine / NASA / ESA"],
         ["Report Date", str(datetime.date.today())]
     ]
     
@@ -60,7 +63,7 @@ def generate_pdf_report(city, year, month, analysis, stats_data, chart_path=None
         pdf.cell(0, 8, str(row[1]), border=1, ln=True)
     pdf.ln(10)
 
-    # Statistics
+    # النتائج الإحصائية
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, "2. Statistical Results", ln=True)
     pdf.set_font("Arial", 'B', 10)
@@ -74,24 +77,23 @@ def generate_pdf_report(city, year, month, analysis, stats_data, chart_path=None
             pdf.cell(80, 8, str(key), border=1)
             pdf.cell(60, 8, str(value), border=1, ln=True)
     else:
-        pdf.cell(140, 8, "Check live dashboard for detailed spatial values.", border=1, ln=True)
+        pdf.cell(140, 8, "Detailed statistics available in dashboard view.", border=1, ln=True)
 
-    # Visuals (Page 2)
+    # الرسوم البيانية (الصفحة الثانية)
     if chart_path and os.path.exists(chart_path):
         pdf.add_page()
         pdf.set_font("Arial", 'B', 12)
         pdf.cell(0, 10, "3. Visual Analytics (Time Series Trend)", ln=True)
-        # Position image below text
-        pdf.image(chart_path, x=10, y=30, w=190)
+        pdf.image(chart_path, x=10, y=35, w=190)
 
     return pdf
 
 # --------------------------------------------------
-# 2. Main App Setup
+# 2. إعدادات التطبيق الرئيسية
 # --------------------------------------------------
 st.set_page_config(page_title="GeoSense-Jordan", page_icon="🇯🇴", layout="wide")
 
-# Persistent memory initialization
+# تهيئة الذاكرة المؤقتة (Session State)
 if 'data_captured' not in st.session_state:
     st.session_state.data_captured = False
 if 'stats' not in st.session_state:
@@ -100,7 +102,7 @@ if 'chart_img' not in st.session_state:
     st.session_state.chart_img = None
 
 if authenticate_gee():
-    # Sidebar
+    # الشريط الجانبي (Sidebar)
     st.sidebar.title("🌍 Control Panel")
     jordan_governorates = ["Amman", "Irbid", "Zarqa", "Aqaba", "Madaba", "Mafraq", "Balqa", "Jerash", "Karak", "Ma'an", "Tafilah", "Ajloun"]
     target_city = st.sidebar.selectbox("Select Governorate:", jordan_governorates)
@@ -121,25 +123,24 @@ if authenticate_gee():
     
     enable_ts = st.sidebar.checkbox("📉 Enable Time Series Analysis")
 
-    # Header
+    # واجهة الترحيب
     roi = get_country_roi(target_city)
     st.markdown(f"""
-        <div style="text-align: center; background: #1a5276; padding: 20px; border-radius: 15px; margin-bottom: 25px;">
+        <div style="text-align: center; background: #1a5276; padding: 20px; border-radius: 15px; margin-bottom: 25px; border: 2px solid #17a2b8;">
             <h1 style="color: white; margin: 0;">GeoSense-Jordan</h1>
-            <p style="color: #d1f2eb;">Researcher: Osama Al-Qawasmeh | Master's Thesis Project</p>
+            <p style="color: #d1f2eb; font-size: 1.2em;">Researcher: Osama Al-Qawasmeh | Master's Thesis Project</p>
         </div>
     """, unsafe_allow_html=True)
 
     # --------------------------------------------------
-    # 3. ANALYSIS EXECUTION
+    # 3. تنفيذ التحليل
     # --------------------------------------------------
     if st.sidebar.button("🚀 Run Analysis"):
-        with st.spinner("Processing Data..."):
+        with st.spinner(f"Processing {analysis_type} for {target_city}..."):
             try:
-                # Reset previous state
+                # تصفير الحالة السابقة
                 st.session_state.chart_img = None
                 
-                # Run the module logic
                 if analysis_type == "Terrain Analysis (DEM / Slope / Aspect)":
                     results = dem_analysis.run(target_city, roi, selected_year, selected_month)
                 elif analysis_type == "Flood Mapping & Risk (SAR)":
@@ -157,18 +158,16 @@ if authenticate_gee():
                 
                 st.session_state.stats = results
                 st.session_state.data_captured = True
-                st.success("Analysis successful!")
+                st.success(f"Analysis for {target_city} completed successfully!")
                 
             except Exception as e:
                 st.error(f"Execution Error: {str(e)}")
 
-    # Display results if they exist in memory
+    # عرض النتائج والرسوم البيانية
     if st.session_state.data_captured:
-        # Time Series logic
         if enable_ts:
             st.markdown("---")
-            st.markdown("### 📊 Monthly Temporal Trends")
-            # We map the UI names to the simplified names the module expects
+            # تعيين المعامل المناسب لموديول السلاسل الزمنية
             ts_mapping = {
                 "Air Quality Monitoring (Sentinel-5P)": "Air Quality",
                 "Land Surface Temperature (LST)": "Temp",
@@ -179,26 +178,28 @@ if authenticate_gee():
             fig = time_series.run_analysis(ts_target, roi, selected_year)
             
             if fig:
-                # FIX: Plotly charts use st.plotly_chart instead of st.pyplot
-                st.plotly_chart(fig, use_container_width=True)
+                # حل مشكلة الـ Duplicate ID باستخدام مفتاح فريد
+                chart_key = f"ts_chart_{target_city}_{selected_year}_{selected_month}"
+                st.plotly_chart(fig, use_container_width=True, key=chart_key)
                 
-                # Save for PDF (Plotly requires write_image)
-                path = os.path.join(tempfile.gettempdir(), f"ts_{target_city}.png")
+                # حفظ الصورة للتقرير
+                temp_path = os.path.join(tempfile.gettempdir(), f"chart_{target_city}.png")
                 try:
-                    fig.write_image(path, engine="kaleido")
-                    st.session_state.chart_img = path
-                except:
+                    # استخدام pio لحفظ صورة plotly
+                    fig.write_image(temp_path, engine="kaleido")
+                    st.session_state.chart_img = temp_path
+                except Exception as e:
                     st.warning("Install 'kaleido' to include charts in PDF reports.")
 
     # --------------------------------------------------
-    # 4. PDF REPORTING
+    # 4. استخراج التقارير
     # --------------------------------------------------
     st.sidebar.markdown("---")
     st.sidebar.subheader("📄 Reporting Tools")
     
     if st.sidebar.button("Generate Scientific PDF"):
         if st.session_state.data_captured:
-            with st.spinner("Compiling Final Report..."):
+            with st.spinner("Generating PDF..."):
                 pdf = generate_pdf_report(
                     target_city, 
                     selected_year, 
@@ -208,17 +209,17 @@ if authenticate_gee():
                     st.session_state.chart_img
                 )
                 
-                # Encoding fix for PDF output
-                pdf_output = pdf.output(dest='S').encode('latin-1', 'ignore')
+                # تحويل الـ PDF إلى بايتات للتحميل
+                pdf_bytes = pdf.output(dest='S').encode('latin-1', 'ignore')
                 
                 st.sidebar.download_button(
-                    label="📥 Download Report Now",
-                    data=pdf_output,
-                    file_name=f"GeoSense_Report_{target_city}_{selected_year}.pdf",
+                    label="📥 Download Report",
+                    data=pdf_bytes,
+                    file_name=f"GeoSense_{target_city}_{selected_year}.pdf",
                     mime="application/pdf"
                 )
         else:
-            st.sidebar.error("⚠️ Data is not processed yet. Click 'Run Analysis' above.")
+            st.sidebar.error("Please run analysis first.")
 
 else:
-    st.error("Google Earth Engine Connection Error.")
+    st.error("Earth Engine Authentication Failed.")
