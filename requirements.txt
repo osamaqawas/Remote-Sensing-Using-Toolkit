@@ -7,5 +7,7 @@ fpdf
 earthengine-api
 matplotlib
 pandas
+kaleido==0.2.1
+
 
 
