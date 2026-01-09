@@ -17,8 +17,8 @@ import modules.time_series as time_series
 # 1. Page Configuration
 # --------------------------------------------------
 st.set_page_config(
-    page_title="GeoSense-Jordan"
-    "Osama Al-Qawasmeh",
+    page_title="GeoSense-Jordan",
+    page_title="Osama Al-Qawasmeh",
     page_icon="🇯🇴",
     layout="wide"
 )
@@ -203,4 +203,5 @@ else:
         "❌ Google Earth Engine authentication failed. "
         "Please check your service account credentials."
     )
+
 
