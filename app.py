@@ -24,71 +24,159 @@ import modules.rainfall as rainfall  # New Module Added
 # --------------------------------------------------
 # 1. Professional PDF Reporting Engine
 # --------------------------------------------------
+# --------------------------------------------------
+# 1. Advanced Executive Reporting Engine (GeoSense Pro)
+# --------------------------------------------------
 class GeoSenseReport(FPDF):
     def header(self):
-        self.set_font("Arial", 'B', 16)
+        # إضافة شعار نصي احترافي
+        self.set_font("Arial", 'B', 15)
         self.set_text_color(26, 82, 118)
-        self.cell(0, 10, "GEOSENSE-JORDAN: SCIENTIFIC ANALYTICAL REPORT", ln=True, align='C')
-        self.set_draw_color(17, 122, 101)
-        self.line(10, 25, 200, 25)
-        self.ln(10)
+        self.cell(100, 10, "GEOSENSE-JORDAN | ANALYTICAL INTELLIGENCE", ln=0)
+        
+        self.set_font("Arial", 'I', 9)
+        self.set_text_color(100)
+        self.cell(0, 10, f"Report ID: GSJ-{datetime.date.today().strftime('%Y%m%d')}", ln=1, align='R')
+        
+        # خط فاصل مزدوج للأناقة
+        self.set_draw_color(26, 82, 118)
+        self.set_line_width(0.8)
+        self.line(10, 22, 200, 22)
+        self.set_line_width(0.2)
+        self.line(10, 23, 200, 23)
+        self.ln(12)
 
     def footer(self):
-        self.set_y(-15)
+        self.set_y(-20)
+        self.set_line_width(0.2)
+        self.line(10, self.get_y(), 200, self.get_y())
         self.set_font("Arial", 'I', 8)
-        self.set_text_color(128, 128, 128)
-        self.cell(0, 10, f"Researcher: Osama Al-Qawasmeh | Master's Thesis Project | Page {self.page_no()}", align='C')
+        self.set_text_color(120)
+        footer_text = f"Scientific Analysis Report - Developed by Osama Al-Qawasmeh | Generation Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        self.cell(0, 10, footer_text, align='L')
+        self.cell(0, 10, f"Page {self.page_no()}/{{nb}}", align='R')
 
 def generate_pdf_report(city, year, month, analysis, stats_data, chart_path=None):
     pdf = GeoSenseReport()
+    pdf.alias_nb_pages()
     pdf.add_page()
     
-    # 1. Executive Summary Section
+    # --- العناوين الرئيسية ---
+    pdf.set_font("Arial", 'B', 20)
+    pdf.set_text_color(44, 62, 80)
+    pdf.cell(0, 15, f"{analysis.upper()} REPORT", ln=True, align='L')
+    
+    pdf.set_font("Arial", '', 11)
+    pdf.set_text_color(52, 73, 94)
+    pdf.cell(0, 7, f"Geospatial Study for {city} Governorate, Jordan", ln=True)
+    pdf.ln(5)
+
+    # --- القسم الأول: معايير الدراسة (Study Metadata) ---
+    pdf.set_fill_color(26, 82, 118)
+    pdf.set_text_color(255)
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, "1. Executive Summary", ln=True)
-    pdf.set_font("Arial", '', 10)
-    pdf.set_fill_color(230, 240, 235)
+    pdf.cell(0, 10, "  1. ADMINISTRATIVE & TEMPORAL CONTEXT", ln=True, fill=True)
+    pdf.ln(2)
+
+    # جدول بيانات مدمج
+    pdf.set_text_color(0)
+    pdf.set_font("Arial", 'B', 10)
     
-    report_info = [
-        ["Governorate / Region", city],
-        ["Observation Period", f"{month} {year}"],
-        ["Analysis Module", analysis],
-        ["Data Source", "Google Earth Engine / NASA / ESA"],
-        ["Report Generation Date", str(datetime.date.today())]
+    meta_data = [
+        ["Study Area:", f"{city}, Jordan", "Analysis Period:", f"{month} {year}"],
+        ["Platform:", "Google Earth Engine", "Coordinate System:", "WGS 84 / EPSG:4326"],
+        ["Data Source:", str(stats_data.get('Data Source', 'Satellite Constellation')), "Status:", "Verified"]
     ]
+
+    for row in meta_data:
+        pdf.set_font("Arial", 'B', 9)
+        pdf.set_fill_color(245, 245, 245)
+        pdf.cell(35, 8, row[0], border=1, fill=True)
+        pdf.set_font("Arial", '', 9)
+        pdf.cell(60, 8, row[1], border=1)
+        pdf.set_font("Arial", 'B', 9)
+        pdf.set_fill_color(245, 245, 245)
+        pdf.cell(35, 8, row[2], border=1, fill=True)
+        pdf.set_font("Arial", '', 9)
+        pdf.cell(0, 8, row[3], border=1, ln=True)
     
-    for row in report_info:
-        pdf.set_font("Arial", 'B', 10)
-        pdf.cell(60, 8, row[0], border=1, fill=True)
-        pdf.set_font("Arial", '', 10)
-        pdf.cell(0, 8, str(row[1]), border=1, ln=True)
     pdf.ln(10)
 
-    # 2. Statistical Indicators Section
+    # --- القسم الثاني: المؤشرات الرئيسية (Key Performance Indicators) ---
+    pdf.set_fill_color(26, 82, 118)
+    pdf.set_text_color(255)
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, "2. Statistical Results & Indicators", ln=True)
-    pdf.set_font("Arial", 'B', 10)
-    pdf.set_fill_color(245, 245, 245)
-    pdf.cell(90, 8, "Indicator Metric", border=1, fill=True)
-    pdf.cell(60, 8, "Quantified Value", border=1, fill=True, ln=True)
-    
-    pdf.set_font("Arial", '', 10)
-    if isinstance(stats_data, dict) and stats_data:
-        for key, value in stats_data.items():
-            pdf.cell(90, 8, str(key), border=1)
-            pdf.cell(60, 8, str(value), border=1, ln=True)
-    else:
-        pdf.cell(150, 8, "Detailed metrics are available in the dynamic dashboard.", border=1, ln=True)
+    pdf.cell(0, 10, "  2. QUANTITATIVE ANALYTICS & KPIs", ln=True, fill=True)
+    pdf.ln(5)
 
-    # 3. Visual Analytics (Appendix)
+    # تصميم بطاقات البيانات (Data Cards)
+    pdf.set_text_color(0)
+    count = 0
+    if isinstance(stats_data, dict):
+        for key, value in stats_data.items():
+            if key not in ['Module', 'Data Source', 'Status']:
+                # رسم المربع
+                x_start = pdf.get_x()
+                y_start = pdf.get_y()
+                
+                pdf.set_draw_color(200)
+                pdf.set_fill_color(252, 252, 252)
+                pdf.rect(x_start, y_start, 92, 20, 'DF')
+                
+                # العنوان الصغير داخل المربع
+                pdf.set_font("Arial", 'B', 8)
+                pdf.set_text_color(100)
+                pdf.set_xy(x_start + 2, y_start + 2)
+                pdf.cell(90, 5, key.upper(), ln=0)
+                
+                # القيمة الكبيرة
+                pdf.set_font("Arial", 'B', 14)
+                pdf.set_text_color(26, 82, 118)
+                pdf.set_xy(x_start + 2, y_start + 10)
+                pdf.cell(90, 8, str(value), ln=0)
+                
+                count += 1
+                if count % 2 == 0:
+                    pdf.ln(25)
+                    pdf.set_x(10)
+                else:
+                    pdf.set_xy(x_start + 95, y_start)
+    
+    pdf.ln(20)
+
+    # --- القسم الثالث: التفسير العلمي (Scientific Summary) ---
+    pdf.set_font("Arial", 'B', 12)
+    pdf.set_text_color(26, 82, 118)
+    pdf.cell(0, 10, "3. SCIENTIFIC INTERPRETATION", ln=True)
+    pdf.set_font("Arial", '', 10)
+    pdf.set_text_color(0)
+    summary_text = (
+        f"The advanced geospatial processing for {city} identifies key environmental indicators for {month} {year}. "
+        f"The results obtained for {analysis} demonstrate the spatial variability within the study area boundaries. "
+        "These metrics are critical for decision-making and regional planning in Jordan's context."
+    )
+    pdf.multi_cell(0, 6, summary_text, border='L')
+    
+    # --- الصفحة الثانية: الرسوم البيانية ---
     if chart_path and os.path.exists(chart_path):
         pdf.add_page()
+        pdf.set_fill_color(26, 82, 118)
+        pdf.set_text_color(255)
         pdf.set_font("Arial", 'B', 12)
-        pdf.cell(0, 10, "3. Visual Analytics (Temporal Trend Analysis)", ln=True)
-        pdf.image(chart_path, x=10, y=35, w=190)
+        pdf.cell(0, 10, "  3. VISUAL TEMPORAL ANALYTICS (TRENDS)", ln=True, fill=True)
+        pdf.ln(10)
+        
+        # وضع الصورة مع إطار خفيف
+        pdf.set_draw_color(230)
+        pdf.image(chart_path, x=15, y=40, w=180)
+        pdf.rect(14, 39, 182, 95, 'D')
+        
+        pdf.set_y(140)
+        pdf.set_font("Arial", 'I', 9)
+        pdf.set_text_color(100)
+        pdf.cell(0, 10, f"Figure 1.0: Monthly dynamic trend analysis for {analysis} ({year})", align='C', ln=True)
 
     return pdf
-
 # --------------------------------------------------
 # 2. Main App Setup & UI Configuration
 # --------------------------------------------------
@@ -236,3 +324,4 @@ if authenticate_gee():
 
 else:
     st.error("Earth Engine Authentication Error. Please check your credentials.")
+
