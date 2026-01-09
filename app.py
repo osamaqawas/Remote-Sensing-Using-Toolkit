@@ -40,7 +40,7 @@ def generate_pdf_report(city, year, month, analysis, stats_data, chart_path=None
     pdf = GeoSenseReport()
     pdf.add_page()
     
-    # Section 1: Metadata
+    # Metadata Table
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, "1. Executive Summary", ln=True)
     pdf.set_font("Arial", '', 10)
@@ -61,60 +61,53 @@ def generate_pdf_report(city, year, month, analysis, stats_data, chart_path=None
         pdf.cell(0, 8, row[1], border=1, ln=True)
     pdf.ln(10)
 
-    # Section 2: Quantitative Results
+    # Statistics Section
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, "2. Statistical Indicators", ln=True)
+    pdf.cell(0, 10, "2. Statistical Results", ln=True)
     pdf.set_font("Arial", 'B', 10)
     pdf.set_fill_color(245, 245, 245)
     pdf.cell(80, 8, "Indicator Metric", border=1, fill=True)
     pdf.cell(60, 8, "Value", border=1, fill=True, ln=True)
     
     pdf.set_font("Arial", '', 10)
-    if isinstance(stats_data, dict):
+    if isinstance(stats_data, dict) and stats_data:
         for key, value in stats_data.items():
             pdf.cell(80, 8, str(key), border=1)
             pdf.cell(60, 8, str(value), border=1, ln=True)
     else:
-        pdf.cell(140, 8, "Analysis completed successfully. See dashboard for live values.", border=1, ln=True)
+        pdf.cell(140, 8, "Analysis completed successfully. Refer to dashboard for details.", border=1, ln=True)
 
-    # Section 3: Visual Analytics (Page 2)
+    # Image Section (Page 2)
     if chart_path and os.path.exists(chart_path):
         pdf.add_page()
         pdf.set_font("Arial", 'B', 12)
-        pdf.cell(0, 10, "3. Visual Trend Analysis", ln=True)
+        pdf.cell(0, 10, "3. Visual Trend Analytics", ln=True)
         pdf.image(chart_path, x=15, y=30, w=180)
-        pdf.set_y(150)
-        pdf.set_font("Arial", 'I', 9)
-        pdf.multi_cell(0, 7, "This chart represents the temporal variation of the selected indices. "
-                             "Spatial maps are rendered dynamically within the GeoSense platform.")
 
     return pdf
 
 # --------------------------------------------------
-# 2. Page Configuration & Session State
+# 2. Page Configuration & State Management
 # --------------------------------------------------
 st.set_page_config(page_title="GeoSense-Jordan", page_icon="🇯🇴", layout="wide")
 
-# Persistent memory for analysis results
-if 'final_stats' not in st.session_state:
-    st.session_state['final_stats'] = None
-if 'chart_path' not in st.session_state:
-    st.session_state['chart_path'] = None
+# Initialize Session State to keep data between reruns
+if 'current_stats' not in st.session_state:
+    st.session_state['current_stats'] = None
+if 'current_chart' not in st.session_state:
+    st.session_state['current_chart'] = None
 
 if authenticate_gee():
-    # --- Sidebar Setup ---
-    st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/c/c0/Flag_of_Jordan.svg", width=80)
+    # Sidebar
     st.sidebar.title("🌍 Control Panel")
-    
     jordan_governorates = ["Amman", "Irbid", "Zarqa", "Aqaba", "Madaba", "Mafraq", "Balqa", "Jerash", "Karak", "Ma'an", "Tafilah", "Ajloun"]
     target_city = st.sidebar.selectbox("Select Governorate:", jordan_governorates)
-    
     selected_year = st.sidebar.slider("Year", 2018, 2026, 2025)
     month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     selected_month_name = st.sidebar.select_slider("Month", options=month_names)
     selected_month = month_names.index(selected_month_name) + 1
 
-    analysis_type = st.sidebar.selectbox("Analysis Module:", [
+    analysis_type = st.sidebar.selectbox("Module:", [
         "Terrain Analysis (DEM / Slope / Aspect)",
         "Flood Mapping & Risk (SAR)",
         "Spectral Indices & Environmental Metrics",
@@ -123,84 +116,82 @@ if authenticate_gee():
         "Active Wildfires (FIRMS)",
         "Land Cover Classification"
     ])
-
-    enable_ts = st.sidebar.checkbox("📉 Enable Time Series")
     
-    # --- Main Screen Header ---
+    enable_ts = st.sidebar.checkbox("📉 Enable Time Series Analysis")
+
+    # Main UI Header
     roi = get_country_roi(target_city)
     st.markdown(f"""
-        <div style="text-align: center; background: linear-gradient(to right, #1a5276, #117a65); padding: 20px; border-radius: 15px; margin-bottom: 25px;">
+        <div style="text-align: center; background: #1a5276; padding: 20px; border-radius: 15px; margin-bottom: 25px;">
             <h1 style="color: white; margin: 0;">GeoSense-Jordan</h1>
-            <p style="color: #d1f2eb; font-size: 1.1em;">Researcher: Osama Al-Qawasmeh | Geospatial Intelligence Dashboard</p>
+            <p style="color: #d1f2eb;">Researcher: Osama Al-Qawasmeh | Master's Thesis Portfolio</p>
         </div>
     """, unsafe_allow_html=True)
 
     # --------------------------------------------------
-    # 3. Execution & Routing
+    # 3. ANALYSIS EXECUTION
     # --------------------------------------------------
-    try:
-        # Running the selected analysis module
-        if analysis_type == "Terrain Analysis (DEM / Slope / Aspect)":
-            st.session_state['final_stats'] = dem_analysis.run(target_city, roi, selected_year, selected_month)
-        elif analysis_type == "Flood Mapping & Risk (SAR)":
-            st.session_state['final_stats'] = flood_mapping.run(target_city, roi, selected_year, selected_month)
-        elif analysis_type == "Spectral Indices & Environmental Metrics":
-            st.session_state['final_stats'] = rs_indices.run(target_city, roi, selected_year, selected_month)
-        elif analysis_type == "Air Quality Monitoring (Sentinel-5P)":
-            pollutant = st.sidebar.radio("Pollutant:", ["NO2", "CO", "O3"])
-            st.session_state['final_stats'] = air_quality.run(target_city, roi, selected_year, selected_month, pollutant)
-        elif analysis_type == "Land Surface Temperature (LST)":
-            st.session_state['final_stats'] = lst.run(target_city, roi, selected_year, selected_month)
-        elif analysis_type == "Active Wildfires (FIRMS)":
-            st.session_state['final_stats'] = wildfire.run(target_city, roi, selected_year, selected_month)
-        elif analysis_type == "Land Cover Classification":
-            st.session_state['final_stats'] = land_cover.run(target_city, roi, selected_year, selected_month)
+    # We use a button to trigger analysis so it doesn't reset unnecessarily
+    if st.sidebar.button("🚀 Run Analysis"):
+        with st.spinner("Processing Geospatial Data..."):
+            try:
+                if analysis_type == "Terrain Analysis (DEM / Slope / Aspect)":
+                    res = dem_analysis.run(target_city, roi, selected_year, selected_month)
+                elif analysis_type == "Flood Mapping & Risk (SAR)":
+                    res = flood_mapping.run(target_city, roi, selected_year, selected_month)
+                elif analysis_type == "Spectral Indices & Environmental Metrics":
+                    res = rs_indices.run(target_city, roi, selected_year, selected_month)
+                elif analysis_type == "Air Quality Monitoring (Sentinel-5P)":
+                    res = air_quality.run(target_city, roi, selected_year, selected_month, "NO2")
+                elif analysis_type == "Land Surface Temperature (LST)":
+                    res = lst.run(target_city, roi, selected_year, selected_month)
+                elif analysis_type == "Active Wildfires (FIRMS)":
+                    res = wildfire.run(target_city, roi, selected_year, selected_month)
+                elif analysis_type == "Land Cover Classification":
+                    res = land_cover.run(target_city, roi, selected_year, selected_month)
+                
+                # Save results to session state
+                st.session_state['current_stats'] = res
+                st.success("Analysis Completed! You can now generate the PDF.")
 
-        # Handle Time Series
-        if enable_ts:
-            st.markdown("---")
-            fig = time_series.run_analysis(analysis_type, roi, selected_year)
-            if fig:
-                st.pyplot(fig)
-                # Save plot to temp file for PDF
-                temp_path = os.path.join(tempfile.gettempdir(), "temp_ts_chart.png")
-                fig.savefig(temp_path, dpi=300, bbox_inches='tight')
-                st.session_state['chart_path'] = temp_path
+            except Exception as e:
+                st.error(f"Analysis Error: {e}")
 
-    except Exception as e:
-        st.error(f"Analysis Error: {e}")
+    # Display Time Series if enabled
+    if enable_ts:
+        st.markdown("### 📊 Time Series Trends")
+        fig = time_series.run_analysis(analysis_type, roi, selected_year)
+        if fig:
+            st.pyplot(fig)
+            path = os.path.join(tempfile.gettempdir(), "ts_plot.png")
+            fig.savefig(path, dpi=300)
+            st.session_state['current_chart'] = path
 
-    # --- PDF Export Section ---
+    # --------------------------------------------------
+    # 4. PDF GENERATION
+    # --------------------------------------------------
     st.sidebar.markdown("---")
     st.sidebar.subheader("📄 Reporting")
     
     if st.sidebar.button("Generate Scientific PDF"):
-        # Check if we actually have data to report
-        if st.session_state['final_stats'] is not None:
-            with st.spinner("Compiling Full Scientific Report..."):
-                pdf_report = generate_pdf_report(
+        # We check the session state instead of a local variable
+        if st.session_state['current_stats'] is not None:
+            with st.spinner("Generating PDF..."):
+                pdf = generate_pdf_report(
                     target_city, 
                     selected_year, 
                     selected_month_name, 
                     analysis_type, 
-                    st.session_state['final_stats'], 
-                    st.session_state['chart_path']
+                    st.session_state['current_stats'],
+                    st.session_state['current_chart']
                 )
                 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                    pdf_report.output(tmp.name)
+                    pdf.output(tmp.name)
                     with open(tmp.name, "rb") as f:
-                        st.sidebar.download_button(
-                            label="📥 Download PDF Report",
-                            data=f,
-                            file_name=f"GeoSense_Report_{target_city}_{selected_year}.pdf",
-                            mime="application/pdf"
-                        )
+                        st.sidebar.download_button("📥 Download Report", f, f"Report_{target_city}.pdf")
         else:
-            st.sidebar.error("Please run the analysis first to capture statistics.")
-
-    st.markdown("---")
-    st.caption("Jordan Geospatial Intelligence Platform | Professional Edition 2026")
+            st.sidebar.error("Please click 'Run Analysis' button first!")
 
 else:
-    st.error("Google Earth Engine Authentication Failed.")
+    st.error("GEE Authentication Failed.")
