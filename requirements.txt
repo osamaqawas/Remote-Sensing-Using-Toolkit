@@ -5,4 +5,7 @@ streamlit-folium
 google-auth
 fpdf
 earthengine-api
+matplotlib
+pandas
+
 
