@@ -3,3 +3,6 @@ earthengine-api
 geemap
 streamlit-folium
 google-auth
+fpdf
+earthengine-api
+
