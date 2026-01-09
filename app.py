@@ -3,6 +3,7 @@ import datetime
 import os
 import tempfile
 import pandas as pd
+import matplotlib.pyplot as plt
 from fpdf import FPDF
 from utils.helpers import authenticate_gee
 from utils.geometry_utils import get_country_roi
@@ -18,7 +19,7 @@ import modules.dem_analysis as dem_analysis
 import modules.time_series as time_series
 
 # --------------------------------------------------
-# 1. Professional PDF Reporting Engine
+# 1. Professional PDF Reporting Engine (Updated for Graphics)
 # --------------------------------------------------
 class GeoSenseReport(FPDF):
     def header(self):
@@ -35,49 +36,35 @@ class GeoSenseReport(FPDF):
         self.set_text_color(128, 128, 128)
         self.cell(0, 10, f"Researcher: Osama Al-Qawasmeh | Page {self.page_no()}", align='C')
 
-def generate_pdf_report(city, year, month, analysis, stats_data):
+def generate_pdf_report(city, year, month, analysis, stats_data, chart_path=None):
     pdf = GeoSenseReport()
     pdf.add_page()
     
-    # Information Table
-    pdf.set_font("Arial", 'B', 11)
+    # Section 1: Information Table
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, "1. Executive Summary", ln=True)
+    pdf.set_font("Arial", '', 10)
     pdf.set_fill_color(230, 240, 235)
     
     report_info = [
         ["Governorate", city],
         ["Observation Period", f"{month} {year}"],
         ["Analysis Module", analysis],
-        ["Data Source", "Google Earth Engine (Multi-Mission Satellite Data)"],
+        ["Data Source", "Google Earth Engine (Multi-Mission)"],
         ["Report Date", str(datetime.date.today())]
     ]
     
     for row in report_info:
         pdf.set_font("Arial", 'B', 10)
-        pdf.cell(55, 9, row[0], border=1, fill=True)
+        pdf.cell(55, 8, row[0], border=1, fill=True)
         pdf.set_font("Arial", '', 10)
-        pdf.cell(0, 9, row[1], border=1, ln=True)
+        pdf.cell(0, 8, row[1], border=1, ln=True)
     
     pdf.ln(10)
 
-    # Methodology Section
-    pdf.set_font("Arial", 'B', 13)
-    pdf.set_text_color(17, 122, 101)
-    pdf.cell(0, 10, "1. Scientific Methodology", ln=True)
-    pdf.set_font("Arial", '', 10)
-    pdf.set_text_color(0, 0, 0)
-    methodology = (
-        f"This report presents an advanced geospatial analysis of {analysis} for {city}. "
-        "The workflow includes multi-spectral satellite acquisition, atmospheric correction, "
-        "and spatial reduction algorithms to derive accurate environmental metrics."
-    )
-    pdf.multi_cell(0, 7, methodology)
-    pdf.ln(5)
-
-    # Quantitative Indicators Section
-    pdf.set_font("Arial", 'B', 13)
-    pdf.set_text_color(17, 122, 101)
-    pdf.cell(0, 10, "2. Quantitative Results", ln=True)
-    
+    # Section 2: Quantitative Results
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, "2. Statistical Indicators", ln=True)
     pdf.set_font("Arial", 'B', 10)
     pdf.set_fill_color(245, 245, 245)
     pdf.cell(80, 8, "Indicator Metric", border=1, fill=True)
@@ -88,9 +75,19 @@ def generate_pdf_report(city, year, month, analysis, stats_data):
         pdf.cell(80, 8, key, border=1)
         pdf.cell(60, 8, str(value), border=1, ln=True)
     
-    pdf.ln(10)
-    pdf.set_font("Arial", 'I', 10)
-    pdf.multi_cell(0, 7, "Note: Visual distribution maps and trend charts are available in the live dashboard.")
+    # --- Page 2: Visualizations ---
+    if chart_path and os.path.exists(chart_path):
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(0, 10, "3. Temporal Trend & Visual Analysis", ln=True)
+        pdf.ln(5)
+        # Adding the saved chart image to PDF
+        pdf.image(chart_path, x=15, y=30, w=180)
+        pdf.set_y(140)
+        pdf.set_font("Arial", 'I', 9)
+        pdf.multi_cell(0, 7, "The chart above illustrates the temporal variations during the selected period. "
+                             "Detailed spatial maps are generated dynamically in the system dashboard.")
+
     return pdf
 
 # --------------------------------------------------
@@ -121,10 +118,11 @@ if authenticate_gee():
         "Land Cover Classification"
     ])
 
-    enable_ts = st.sidebar.checkbox("📉 Enable Time Series")
+    enable_ts = st.sidebar.checkbox("📉 Enable Time Series Analysis")
     
-    # Variable to hold data for the PDF
-    final_stats = {"Status": "Data Ready", "Accuracy": "Verified"}
+    # Variables for report
+    final_stats = {}
+    temp_chart_path = os.path.join(tempfile.gettempdir(), "temp_chart.png")
 
     # --- Main Screen ---
     roi = get_country_roi(target_city)
@@ -140,7 +138,6 @@ if authenticate_gee():
     # 3. Execution & Routing
     # --------------------------------------------------
     try:
-        # We capture the returned dictionary from each module to use in the PDF
         if analysis_type == "Terrain Analysis (DEM / Slope / Aspect)":
             final_stats = dem_analysis.run(target_city, roi, selected_year, selected_month)
         elif analysis_type == "Flood Mapping & Risk (SAR)":
@@ -159,30 +156,39 @@ if authenticate_gee():
 
         if enable_ts:
             st.markdown("---")
-            time_series.run_analysis(analysis_type, roi, selected_year)
+            # We assume time_series.run_analysis returns a Matplotlib Figure
+            fig = time_series.run_analysis(analysis_type, roi, selected_year)
+            if fig:
+                fig.savefig(temp_chart_path, dpi=300, bbox_inches='tight')
+                st.pyplot(fig)
 
     except Exception as e:
         st.error(f"Analysis Error: {e}")
 
-    # --- PDF Button (Now placed after execution so it has data) ---
+    # --- PDF Button ---
     st.sidebar.markdown("---")
     st.sidebar.subheader("📄 Export Results")
     if st.sidebar.button("Generate Scientific PDF"):
-        with st.spinner("Compiling Professional Report..."):
-            # If module returns None, use placeholder to avoid crash
-            report_data = final_stats if isinstance(final_stats, dict) else {"Result": "Analysis Completed"}
-            
-            pdf_report = generate_pdf_report(target_city, selected_year, selected_month_name, analysis_type, report_data)
-            
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                pdf_report.output(tmp.name)
-                with open(tmp.name, "rb") as f:
-                    st.sidebar.download_button(
-                        label="Download PDF Report",
-                        data=f,
-                        file_name=f"GeoSense_Report_{target_city}.pdf",
-                        mime="application/pdf"
-                    )
+        if not final_stats:
+            st.sidebar.warning("Please run analysis first.")
+        else:
+            with st.spinner("Compiling Full Report..."):
+                report_data = final_stats if isinstance(final_stats, dict) else {"Result": "Analysis Completed"}
+                
+                # Check if chart exists to include in PDF
+                chart_to_include = temp_chart_path if (enable_ts and os.path.exists(temp_chart_path)) else None
+                
+                pdf_report = generate_pdf_report(target_city, selected_year, selected_month_name, analysis_type, report_data, chart_to_include)
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                    pdf_report.output(tmp.name)
+                    with open(tmp.name, "rb") as f:
+                        st.sidebar.download_button(
+                            label="Download Full Report",
+                            data=f,
+                            file_name=f"GeoSense_Report_{target_city}_{selected_year}.pdf",
+                            mime="application/pdf"
+                        )
 
     st.markdown("---")
     st.caption("Jordan Geospatial Intelligence Platform | Professional Edition 2026")
