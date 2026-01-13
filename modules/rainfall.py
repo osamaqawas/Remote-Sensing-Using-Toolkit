@@ -6,21 +6,21 @@ from streamlit_folium import folium_static
 def run(country_name, roi, year, month):
     st.markdown(f"### 🌧️ Precipitation Analysis (ECMWF ERA5-Land)")
 
-    # 1. تحديد التاريخ
+   
     date_string = f"{year}-{month:02d}-01"
     
     try:
-        # 2. جلب البيانات باستخدام الاسم الصحيح للنطاق
+
         rainfall_img = ee.ImageCollection("ECMWF/ERA5_LAND/MONTHLY_AGGR") \
             .filterDate(date_string) \
             .select('total_precipitation_sum') \
             .first() \
             .clip(roi)
 
-        # تحويل من متر إلى مليمتر
+        
         total_rainfall_mm = rainfall_img.multiply(1000)
 
-        # 3. حساب الإحصائيات
+        
         stats = total_rainfall_mm.reduceRegion(
             reducer=ee.Reducer.mean().combine(
                 reducer2=ee.Reducer.max(),
@@ -31,16 +31,15 @@ def run(country_name, roi, year, month):
             maxPixels=1e9
         ).getInfo()
 
-        # تأكد من تطابق مفاتيح النتائج مع اسم النطاق الجديد
         mean_val = stats.get('total_precipitation_sum_mean') or 0
         max_val = stats.get('total_precipitation_sum_max') or 0
 
-        # 4. عرض النتائج
+        
         col1, col2 = st.columns(2)
         col1.metric("Average Rainfall", f"{mean_val:.2f} mm")
         col2.metric("Peak Rainfall", f"{max_val:.2f} mm")
 
-        # 5. الخريطة
+    
         m = geemap.Map()
         m.add_basemap("TERRAIN")
         
